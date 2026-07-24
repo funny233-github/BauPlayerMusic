@@ -8,7 +8,22 @@
 
 Agent 必须**严格按顺序**执行以下步骤，每步完成后再进行下一步。
 
-### 第 1 步：询问可选功能
+### 第 1 步：询问镜像源（构建加速）
+
+国内直连 Docker Hub、Ubuntu 官方源、Rust 官方源速度极慢。向用户确认是否需要镜像加速：
+
+1. **apt 镜像源** — 是否使用阿里云镜像加速？国内建议 `http://mirrors.aliyun.com`。
+2. **Rust 镜像源** — 是否使用中科大镜像加速？国内建议 `https://mirrors.ustc.edu.cn/rust-static`。
+
+在 `.env` 中添加（留空则走官方源）：
+```dotenv
+APT_MIRROR=http://mirrors.aliyun.com
+RUSTUP_MIRROR=https://mirrors.ustc.edu.cn/rust-static
+```
+
+---
+
+### 第 2 步：询问可选功能
 
 向用户确认：
 
@@ -19,7 +34,7 @@ Agent 必须**严格按顺序**执行以下步骤，每步完成后再进行下�
 
 ---
 
-### 第 2 步：安装 Python 环境
+### 第 3 步：安装 Python 环境
 
 在宿主机上安装 Python 3.12+ 和依赖（用于首次获取网易云 Cookie）：
 
@@ -35,7 +50,7 @@ pip install -r requirements-aliyun.txt -i https://pypi.tuna.tsinghua.edu.cn/simp
 
 ---
 
-### 第 3 步：获取网易云 Cookie
+### 第 4 步：获取网易云 Cookie
 
 引导用户运行 mds.py 扫码登录：
 
@@ -53,9 +68,9 @@ Agent 应告知用户：
 
 ---
 
-### 第 4 步：配置 .env
+### 第 5 步：配置 .env
 
-根据第 1 步的选择，与用户一起填写 `.env` 文件。
+根据前几步的选择，与用户一起填写 `.env` 文件。
 
 **最小配置**（仅本地播放）：
 
@@ -124,7 +139,7 @@ Agent 注意：
 
 ---
 
-### 第 5 步：配置 myServerconfig.cfg
+### 第 6 步：配置 myServerconfig.cfg
 
 与用户一起填写 `myServerconfig.cfg`：
 
@@ -164,18 +179,28 @@ Agent 注意：
 
 ---
 
-### 第 6 步：构建并启动
+### 第 7 步：构建并启动
+
+**构建必须分两步**，因为 Docker Compose 不支持构建时依赖排序——`build-env`（编译环境）必须先完成，`backend` 和 `server` 才能引用它：
 
 ```bash
-docker compose build --no-cache
+# 1. 先构建编译环境（首次或改依赖时，之后可跳过）
+docker compose build build-env
+
+# 2. 构建后端和服务端
+docker compose build --no-cache backend server
+
+# 3. 启动
 docker compose up -d
 ```
 
-构建耗时约 5-15 分钟（含编译 DDNet 服务端）。
+**为什么分两步？** Compose 的 `depends_on` 只控制运行时启动顺序，不控制构建顺序。BuildKit 会并行构建所有服务，`backend`/`server` 的 `FROM bpmusic-build` 在编译环境没造好之前会尝试从 Docker Hub 拉取，必然失败。分两次 build 用 `&&` 是 Docker Compose 社区公认的标准做法（参见 GitHub issues #6093、#13073）。
+
+构建耗时约 10-20 分钟（含编译 DDNet 服务端）。
 
 ---
 
-### 第 7 步：验证
+### 第 8 步：验证
 
 ```bash
 # 检查容器状态
@@ -194,7 +219,7 @@ curl http://127.0.0.1:8787
 
 ---
 
-### 第 8 步：告知用户
+### 第 9 步：告知用户
 
 - 游戏客户端连接 `服务器IP:8303`
 - 管理面板 `http://服务器IP:8787`

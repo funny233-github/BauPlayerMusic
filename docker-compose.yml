@@ -1,4 +1,13 @@
 services:
+  build-env:
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        - APT_MIRROR=${APT_MIRROR:-}
+    image: bpmusic-build:latest
+    command: ["true"]
+
   backend:
     build:
       context: .
@@ -9,6 +18,9 @@ services:
     container_name: bpmusic-backend
     restart: unless-stopped
     network_mode: host
+    depends_on:
+      build-env:
+        condition: service_completed_successfully
     volumes:
       - ./data/musicso:/app/data/musicso
       - ./data/musico/prepared_maps:/app/data/musico/prepared_maps
@@ -37,6 +49,9 @@ services:
     container_name: bpmusic-server
     restart: unless-stopped
     network_mode: host
+    depends_on:
+      build-env:
+        condition: service_completed_successfully
     volumes:
       - ./data/musico:/app/data/musico
       - ./data/musicso:/app/data/musicso

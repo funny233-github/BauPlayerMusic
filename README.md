@@ -130,8 +130,9 @@ python mds.py   # 扫码登录，生成 netease_cookies.json 后 Ctrl+C
 cp .env.example .env
 cp myServerconfig.example.cfg myServerconfig.cfg
 
-# 3. 构建并启动
-docker compose build --no-cache
+# 3. 构建并启动（分两步：先编译环境，再编译程序）
+docker compose build build-env
+sudo docker compose build --no-cache backend server
 docker compose up -d
 ```
 

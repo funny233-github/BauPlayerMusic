@@ -1,57 +1,23 @@
 # BauPlayerMusic Python 后端
-#
-# 构建参数：
-#   APT_MIRROR  替换 apt 源镜像地址（留空则使用 Ubuntu 官方源）
-#               示例：docker compose build --build-arg APT_MIRROR=http://mirrors.aliyun.com/ubuntu
-ARG APT_MIRROR=""
+# 先构建编译环境：docker build -t bpmusic-build -f Dockerfile.build .
 
 # 阶段 1: 编译 music_map_patcher
-FROM ubuntu:latest AS builder
-
-# 国内可换 apt 镜像源加速安装
-RUN if [ -n "${APT_MIRROR}" ]; then \
-      sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g; s|http://security.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources \
-      || sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g; s|http://security.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list; \
-    fi
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake pkg-config \
-    libcurl4-openssl-dev \
-    libfreetype-dev \
-    libglew-dev \
-    libogg-dev \
-    libopus-dev \
-    libopusfile-dev \
-    libpng-dev \
-    libsdl2-dev \
-    libsqlite3-dev \
-    libssl-dev \
-    libwavpack-dev \
-    zlib1g-dev \
-    ca-certificates \
-    curl \
-    python3 \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
+FROM bpmusic-build:latest AS builder
 WORKDIR /build
 COPY . .
-
 RUN cmake -S . -B build-server \
     -DCLIENT=OFF \
     -DWEBSOCKETS=OFF \
     -DMYSQL=OFF \
     -DPREFER_BUNDLED_LIBS=ON \
     -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build build-server --config Release --target music_map_patcher -- -j$(nproc)
+    && cmake --build build-server --config Release --target music_map_patcher -- -j$(nproc) \
+    && strip build-server/music_map_patcher
 
 # 阶段 2: Python 运行时
 FROM ubuntu:latest
 
-# 再次声明 ARG 使其在本阶段可用
-ARG APT_MIRROR
+ARG APT_MIRROR=""
 RUN if [ -n "${APT_MIRROR}" ]; then \
       sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g; s|http://security.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources \
       || sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g; s|http://security.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list; \
@@ -63,19 +29,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4t64 \
     ca-certificates \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/*
 
 WORKDIR /app
 
 COPY requirements.txt requirements-aliyun.txt .
 RUN pip install --no-cache-dir --break-system-packages -r requirements-aliyun.txt
 
-COPY --from=builder /build/build-server/music_map_patcher .
+COPY --from=builder /build/build-server/music_map_patcher /usr/local/bin/
 COPY . .
 RUN chmod +x docker-entrypoint-backend.sh
-
 RUN mkdir -p data/musicso/covers data/musico/prepared_maps data/webmaps
 
 EXPOSE 5000 8787
-
 ENTRYPOINT ["./docker-entrypoint-backend.sh"]
