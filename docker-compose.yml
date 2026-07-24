@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        - APT_MIRROR=${APT_MIRROR:-}
     image: bauplayermusic-backend:latest
     container_name: bpmusic-backend
     restart: unless-stopped
@@ -29,6 +31,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.server
+      args:
+        - APT_MIRROR=${APT_MIRROR:-}
     image: bauplayermusic-server:latest
     container_name: bpmusic-server
     restart: unless-stopped
