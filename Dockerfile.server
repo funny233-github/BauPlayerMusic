@@ -11,11 +11,10 @@ RUN cmake -S . -B build-server \
     -DMYSQL=OFF \
     -DPREFER_BUNDLED_LIBS=ON \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++" \
-    && cmake --build build-server --config Release --target game-server music_map_patcher -- -j$(nproc) \
-    && strip build-server/DDNet-Server build-server/music_map_patcher \
-    && cmake --build build-server --config Release --target game-server music_map_patcher -- -j$(nproc) \
-    && strip build-server/DDNet-Server build-server/music_map_patcher
+    -DCMAKE_CXX_FLAGS="-fsanitize=address -g -O2" \
+    -DCMAKE_C_FLAGS="-fsanitize=address -g -O2" \
+    -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
+    && cmake --build build-server --config Release --target game-server music_map_patcher -- -j$(nproc)
 
 # 阶段 2: DDNet 运行时（只有运行库，无 python/rust）
 FROM ubuntu:latest
@@ -42,6 +41,7 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
     libssl3t64 \
     libwavpack1 \
     libzstd1 \
+    libasan8 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
     && rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/* \

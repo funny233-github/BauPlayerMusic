@@ -20,4 +20,11 @@ python3 admin_panel.py &
 PANEL_PID=$!
 
 echo "[entrypoint] 启动音乐后端..."
-exec python3 mds.py
+exec python3 -c "
+import requests.packages.urllib3.util.connection
+requests.packages.urllib3.util.connection.HAS_IPV6 = False
+import sys
+sys.argv = ['mds.py']
+__file__ = '/app/mds.py'
+exec(open('/app/mds.py').read())
+"
