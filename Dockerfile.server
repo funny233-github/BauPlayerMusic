@@ -13,6 +13,8 @@ RUN cmake -S . -B build-server \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++" \
     && cmake --build build-server --config Release --target game-server music_map_patcher -- -j$(nproc) \
+    && strip build-server/DDNet-Server build-server/music_map_patcher \
+    && cmake --build build-server --config Release --target game-server music_map_patcher -- -j$(nproc) \
     && strip build-server/DDNet-Server build-server/music_map_patcher
 
 # 阶段 2: DDNet 运行时（只有运行库，无 python/rust）

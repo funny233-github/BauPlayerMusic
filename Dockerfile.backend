@@ -19,18 +19,23 @@ FROM python:3.13-slim
 WORKDIR /app
 
 ARG APT_MIRROR=""
+ARG PIP_MIRROR=""
 COPY requirements.txt requirements-aliyun.txt ./
 COPY --from=builder /build/build-server/music_map_patcher /usr/local/bin/
 COPY mds.py admin_panel.py qqbot_bridge.py music_stats.py turtle_soup.py undercover_game.py ./
 COPY admin_web/ admin_web/
-COPY data/ data/
+COPY data/originmaps/ data/originmaps/
+COPY data/musico/turtle_soup_cases.json data/musico/undercover_words.txt data/musico/
 COPY docker-entrypoint-backend.sh .
 
 RUN if [ -n "${APT_MIRROR}" ]; then \
       sed -i "s|http://deb.debian.org|${APT_MIRROR}|g; s|http://security.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources; \
     fi \
     && apt-get update && apt-get install -y --no-install-recommends ffmpeg curl \
-    && pip install --no-cache-dir -r requirements-aliyun.txt \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
+    && rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/* \
+    && pip install --no-cache-dir -r requirements-aliyun.txt ${PIP_MIRROR:+-i ${PIP_MIRROR}} \
+    && find /usr/local/lib -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null; true \
     && chmod +x docker-entrypoint-backend.sh \
     && mkdir -p data/musicso/covers data/musico/prepared_maps data/webmaps
 

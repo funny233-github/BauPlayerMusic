@@ -14,6 +14,7 @@ services:
       dockerfile: Dockerfile.backend
       args:
         - APT_MIRROR=${APT_MIRROR:-}
+        - PIP_MIRROR=${PIP_MIRROR:-}
     image: bauplayermusic-backend:latest
     container_name: bpmusic-backend
     restart: unless-stopped
