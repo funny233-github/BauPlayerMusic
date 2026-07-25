@@ -1,5 +1,5 @@
 # BauPlayerMusic DDNet 服务端
-# 先构建编译环境：docker build -t bpmusic-build -f Dockerfile.build .
+# 先构建编译环境：docker compose build build-env
 
 # 阶段 1: 编译 DDNet-Server
 FROM bpmusic-build:latest AS builder
@@ -10,23 +10,27 @@ RUN cmake -S . -B build-server \
     -DWEBSOCKETS=OFF \
     -DMYSQL=OFF \
     -DPREFER_BUNDLED_LIBS=ON \
-    -DCMAKE_BUILD_TYPE=Debug \
-    -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
-    -DCMAKE_C_FLAGS="-fsanitize=address -g" \
-    -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
-    && cmake --build build-server --config Debug --target game-server music_map_patcher -- -j$(nproc) \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++" \
+    && cmake --build build-server --config Release --target game-server music_map_patcher -- -j$(nproc) \
     && strip build-server/DDNet-Server build-server/music_map_patcher
 
 # 阶段 2: DDNet 运行时（只有运行库，无 python/rust）
 FROM ubuntu:latest
+WORKDIR /app
 
 ARG APT_MIRROR=""
+COPY --from=builder /build/build-server/DDNet-Server /usr/local/bin/
+COPY --from=builder /build/build-server/music_map_patcher /usr/local/bin/
+COPY data/ data/
+COPY storage.cfg .
+COPY docker-entrypoint-server.sh .
+
 RUN if [ -n "${APT_MIRROR}" ]; then \
       sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g; s|http://security.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources \
       || sed -i "s|http://archive.ubuntu.com|${APT_MIRROR}|g; s|http://security.ubuntu.com|${APT_MIRROR}|g" /etc/apt/sources.list; \
-    fi
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
+    fi \
+    && apt-get update && apt-get install -y --no-install-recommends \
     libcurl4t64 \
     libfreetype6 \
     libopus0 \
@@ -37,16 +41,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libwavpack1 \
     libzstd1 \
     ca-certificates \
-    libasan8 \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/*
-
-WORKDIR /app
-
-COPY --from=builder /build/build-server/DDNet-Server /usr/local/bin/
-COPY --from=builder /build/build-server/music_map_patcher /usr/local/bin/
-COPY . .
-RUN chmod +x docker-entrypoint-server.sh
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
+    && rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/* \
+    && chmod +x docker-entrypoint-server.sh
 
 EXPOSE 8303/udp
 ENTRYPOINT ["./docker-entrypoint-server.sh"]

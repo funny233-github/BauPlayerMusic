@@ -11,3 +11,11 @@ build/
 Dockerfile
 Dockerfile.*
 docker-compose*.yml
+.env
+netease_cookies.json
+data/musicso/
+data/musico/prepared_maps/
+data/musico/*.sqlite3
+data/musico/playlist.txt
+data/webmaps/
+data/ddnet/
